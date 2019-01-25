@@ -14,10 +14,9 @@ module Microservice
 
       def enlist_lra
         return unless lra_header
-        base_url = request.env['REQUEST_URI'] + 'lra'
-        body = <<~EOF
-          <#{base_url}/leave>; rel="leave"; title="leave URI"; type="text/plain",<#{base_url}/complete>; rel="complete"; title="complete URI"; type="text/plain",<#{base_url}/compensate>; rel="compensate"; title="compensate URI"; type="text/plain",<#{base_url}/status>; rel="status"; title="status URI"; type="text/plain"
-        EOF
+        lra_resource.put 'http://' + request.env['HTTP_HOST']
+      rescue => e
+        puts "Failed to enlist to saga: #{e.message}"
       end
 
       def complete_lra
@@ -40,23 +39,27 @@ module Microservice
     post '/' do
       enlist_lra
       record = Record.new :state => 'approved', :data => {:lra_header => lra_header }
-      repo.insert(record).to_json
+      record = repo.insert(record).to_json
+      complete_lra
+      record
     end
 
     post '/fail/?' do
       enlist_lra
       record = Record.new :state => 'rejected', :data => {:lra_header => lra_header }
-      repo.insert(record).to_json
+      record = repo.insert(record).to_json
+      cancel_lra
+      record
     end
 
-    put '/lra/compensate' do
+    put '/compensate' do
       Repo.find_lra(lra_header).each do |record|
         record.state = 'revoked'
         Repo.update(record)
       end
     end
 
-    put '/lra/complete' do
+    put '/complete' do
       Repo.find_lra(lra_header).each do |record|
         # Do something
       end

@@ -1,8 +1,6 @@
 require_relative './example_helper.rb'
 require 'rest-client'
 
-URL = 'http://localhost:4567'
-
 module Actions
   class BookHotel < ::Dynflow::Action
     include ::Dynflow::Action::Revertible
@@ -47,13 +45,13 @@ module Actions
     def plan(should_fail)
       sequence do
         plan_action BookHotel,
-          :url => 'http://service:4567'
+          :url => 'http://ruby-api:4567'
         plan_action BookHotel,
-          :url => 'http://service:4567'
+          :url => 'http://ruby-api:4567'
         plan_action BookHotel,
-          :url => 'http://service:4567', :should_fail => should_fail
+          :url => 'http://ruby-api:4567', :should_fail => should_fail
         plan_action BookHotel,
-          :url => 'http://service:4567', :should_fail => should_fail
+          :url => 'http://ruby-api:4567', :should_fail => should_fail
       end
     end
   end

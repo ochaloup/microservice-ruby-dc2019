@@ -4,6 +4,24 @@ services:
     image: ochaloup/lra-coordinator:devconf2019
     expose:
       - 8080
+  ruby-api:
+    build:
+      context: extra
+    expose:
+      - 4567
+    volumes:
+      - ./:/data
+    command: |
+      sh -c 'cd /data && bundle install && bundle exec ruby app/api.rb'
+  dynflow:
+    build:
+      context: extra
+    expose:
+      - 3000
+    volumes:
+      - ./:/data
+    command: |
+      sh -c 'cd /data && bundle install && bundle exec ruby app/dynflow.rb'
   test:
     image: ochaloup/lra-coordinator:devconf2019
-    command: "curl -i -X POST http://coordinator:8080/lra-coordinator/start?clientID=1"
+    command: curl -i -X POST -d '' http://ruby-api:4567/
