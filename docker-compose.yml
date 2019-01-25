@@ -1,0 +1,9 @@
+version: "3"
+services:
+  coordinator:
+    image: ochaloup/lra-coordinator:devconf2019
+    expose:
+      - 8080
+  test:
+    image: ochaloup/lra-coordinator:devconf2019
+    command: "curl -i -X POST http://coordinator:8080/lra-coordinator/start?clientID=1"
