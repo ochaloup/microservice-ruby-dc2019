@@ -4,112 +4,63 @@ require 'rest-client'
 URL = 'http://localhost:4567'
 
 module Actions
-  class EntryAction < ::Dynflow::Action
-    def report(message)
-      action_logger.info "#{input[:id]}: #{message}"
-    end
-  end
-
-  class AsyncMicroservice < EntryAction
-    include ::Dynflow::Action::Polling
+  class BookHotel < ::Dynflow::Action
     include ::Dynflow::Action::Revertible
 
-    def invoke_external_task
-      report "Invoking external task at #{input[:url]}"
-      MultiJson.load(resource.post(''))
+    def plan(url:, should_fail: false)
+      plan_self :url => url, :should_fail => should_fail
     end
-
-    def done?
-      external_task['state'] != 'pending'
-    end
-
-    def poll_external_task
-      report 'Polling external task state'
-      MultiJson.load(resource("#{external_task['id']}/status").get)
-    end
-
-    def on_finish
-      if external_task['state'] == 'rejected'
-        error! "#{input[:id]}: The external task failed"
-      end
-      report 'Finished successfully'
-    end
-
-    def revert(parent_action)
-      # Call compensate if we actually created a task on the remote side
-      if parent_action.run_step.state != :pending
-        id = parent_action.output['task']['id']
-        plan_action CompensateAsyncMicroservice, :url => parent_action.input[:url],
-                                                 :remote_id => id,
-                                                 :id => parent_action.input[:id]
-      end
-      # Either way, mark the step as reverted
-      revert_self(parent_action)
-    end
-
-    def resource(path = '/')
-      @resource ||= RestClient::Resource.new(input[:url])
-      @resource[path]
-    end
-
-    def poll_intervals
-      [1, 5, 10]
-    end
-  end
-
-  class CompensateAsyncMicroservice < EntryAction
-    def run
-      report "Reverting"
-      RestClient::Resource.new(input[:url])["#{input[:remote_id]}/compensate"].post ''
-    end
-  end
-
-  class ManyMicroservices < ::Dynflow::Action
-    include ::Dynflow::Action::Revertible
-
-    def plan(count)
-      concurrence do
-        count.times do |i|
-          plan_action AsyncMicroservice, :url => URL, :id => i
-        end
-      end
-    end
-  end
-
-  class SyncMicroservice < ::Dynflow::Action
-    include ::Dynflow::Action::Revertible
 
     def run
-      action_logger.info "GET #{input[:url]}"
-      output[:result] = MultiJson.load(RestClient.get(input[:url]))
-      action_logger.info "200 #{input[:url]}"
-    rescue => e
-      error! "#{e.http_code} #{input[:url]}"
+      target_url = input[:url] + (input[:should_fail] ? '/fail' : '/')
+      output[:response] = post_rest(target_url)
+      if output[:response]['state'] == 'rejected'
+        error! "Failed booking at #{input[:url]}"
+      else
+        action_logger.info "Booking succeeded for #{input[:url]}"
+      end
     end
 
     def revert_run
-      action_logger.info "Reverting for #{original_input[:url]}"
+      id = original_output[:response][:id]
+      post_rest(original_input[:url] + "/#{id}/compensate")
+    end
+
+    def post_rest(url, data = nil)
+      response = log(url) do
+        RestClient::Resource.new(url).post(data || '')
+      end
+      MultiJson.load(response.body)
+    end
+
+    def log(url)
+      action_logger.info "START POST #{url}"
+      response = yield
+      action_logger.info " DONE POST #{url} #{response.code}"
+      response
     end
   end
 
-  class ManySyncMicroservices < ::Dynflow::Action
+  class BookTrip < ::Dynflow::Action
     include ::Dynflow::Action::Revertible
-    def plan
-      plan_action SyncMicroservice,
-        :url => 'https://jsonplaceholder.typicode.com/users'
-      plan_action SyncMicroservice,
-        :url => 'https://jsonplaceholder.typicode.com/albums'
-      plan_action SyncMicroservice,
-        :url => 'https://lobste.rs/foobar'
-      plan_action SyncMicroservice,
-        :url => 'https://jsonplaceholder.typicode.com/posts'
+
+    def plan(should_fail)
+      sequence do
+        plan_action BookHotel,
+          :url => 'http://service:4567'
+        plan_action BookHotel,
+          :url => 'http://service:4567'
+        plan_action BookHotel,
+          :url => 'http://service:4567', :should_fail => should_fail
+        plan_action BookHotel,
+          :url => 'http://service:4567', :should_fail => should_fail
+      end
     end
   end
 end
 
 Thread.new do
   sleep 1
-  # ExampleHelper.world.trigger ::Actions::ManySyncMicroservices
-  ExampleHelper.world.trigger ::Actions::ManyMicroservices, 5
+  ExampleHelper.world.trigger ::Actions::BookTrip, false
 end
 ExampleHelper.run_web_console

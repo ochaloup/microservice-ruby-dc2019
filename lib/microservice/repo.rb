@@ -21,6 +21,12 @@ module Microservice
       @records[id]
     end
 
+    def find_lra(lra)
+      @records.values.select do |record|
+        record.data[:lra_header] == lra
+      end
+    end
+
     def update(thing)
       @records.merge(thing.id => thing)
       thing
