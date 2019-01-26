@@ -10,23 +10,25 @@ services:
     expose:
       - 4567
     volumes:
-      - ./:/data
+      - ./:/data:z
     command: |
-      sh -c 'cd /data && bundle install && bundle exec ruby app/api.rb'
+      sh -c 'cd /data && ls -la /data && bundle install && bundle exec ruby app/api.rb'
   dynflow:
     build:
       context: extra
     expose:
       - 3000
     volumes:
-      - ./:/data
+      - ./:/data:z
     command: |
       sh -c 'cd /data && bundle install && bundle exec ruby app/dynflow.rb'
   lraservice:
-    image: ochaloup/lra-coordinator:devconf2019
+    image: ochaloup/devconf2019
     expose:
       - 8080
+    ports:
+      - 8080:8080
     environment:
       - LRA_ENLIST_BASE_URI=http://lraservice:8080/
-        TARGET_CALL=http://ruby-api:4567
+      - TARGET_CALL=http://ruby-api:4567/
     # command: curl -i -X POST -d '' http://ruby-api:4567/
