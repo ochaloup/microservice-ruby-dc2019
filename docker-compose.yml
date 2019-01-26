@@ -22,6 +22,11 @@ services:
       - ./:/data
     command: |
       sh -c 'cd /data && bundle install && bundle exec ruby app/dynflow.rb'
-  test:
+  lraservice:
     image: ochaloup/lra-coordinator:devconf2019
-    command: curl -i -X POST -d '' http://ruby-api:4567/
+    expose:
+      - 8080
+    environment:
+      - LRA_ENLIST_BASE_URI=http://lraservice:8080/
+        TARGET_CALL=http://ruby-api:4567
+    # command: curl -i -X POST -d '' http://ruby-api:4567/
