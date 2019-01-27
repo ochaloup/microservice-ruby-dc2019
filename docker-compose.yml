@@ -9,6 +9,8 @@ services:
       context: extra
     expose:
       - 4567
+    ports:
+      - 4567:4567
     volumes:
       - ./:/data:z
     command: |
@@ -23,7 +25,7 @@ services:
     command: |
       sh -c 'cd /data && bundle install && bundle exec ruby app/dynflow.rb'
   lraservice:
-    image: ochaloup/devconf2019
+    image: ochaloup/devconf2019:presentation
     expose:
       - 8080
     ports:
